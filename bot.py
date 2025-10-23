@@ -20,11 +20,11 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 MAIN_LINK = os.getenv("MAIN_LINK")
 VOUCH_LINK = os.getenv("VOUCH_LINK")
 
-LINK_EXPIRY = 60  # seconds
+LINK_EXPIRY = 15  # seconds (reduced from 60)
 LOG_FILE = "unlocks.csv"
 user_sessions = {}  # {user_id: answer}
 
-# Ensure CSV exists
+# Ensure CSV file exists
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, "w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(["datetime", "user_id", "username", "main_link", "vouch_link"])
@@ -83,9 +83,18 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    msg_text = (
+        f"✅ Correct!\n\n"
+        f"⏳ Links valid for *{LINK_EXPIRY} seconds only!*\n\n"
+        f"⚙️ Steps:\n"
+        f"1️⃣ Click *all links* below\n"
+        f"2️⃣ Press *Join* in both\n"
+        f"3️⃣ If you didn’t make it in time, type */start* again\n\n"
+        f"👇 Click below to join:"
+    )
+
     msg = await update.message.reply_text(
-        f"✅ Correct!\n\n⏳ Links valid for {LINK_EXPIRY} seconds.\n\n"
-        f"👇 Click below to join:",
+        msg_text,
         parse_mode="Markdown",
         reply_markup=reply_markup,
         disable_web_page_preview=True
@@ -102,7 +111,7 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             vouch_temp
         ])
 
-    # Schedule deletion
+    # Schedule message deletion
     asyncio.create_task(delete_after(msg, LINK_EXPIRY, context))
 
     # Clear user session
@@ -127,7 +136,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
     app.add_error_handler(error_handler)
 
-    print("🚀 Invite bot running — links expire after 60s!")
+    print(f"🚀 Invite bot running — links expire after {LINK_EXPIRY}s!")
 
     try:
         loop = asyncio.new_event_loop()
@@ -140,4 +149,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
