@@ -78,7 +78,7 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     vouch_temp = generate_temp_link(VOUCH_LINK)
 
     keyboard = [
-        [InlineKeyboardButton("🥇 Join Main Group", url=main_temp)],
+        [InlineKeyboardButton("🥇 Join Main Channel", url=main_temp)],
         [InlineKeyboardButton("📦 Join Vouch Channel", url=vouch_temp)],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -140,3 +140,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
