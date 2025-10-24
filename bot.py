@@ -50,7 +50,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👋 Hello {name}!\n\n"
         f"🔒 Solve this to unlock your invite links:\n"
         f"🧮 `{a} + {b} = ?`\n\n"
-        f"Reply with the correct answer."
+        f"Reply with the correct answer.\n"
+        f"🔁 Or type /start to refresh."
     )
 
     await update.message.reply_text(
@@ -149,4 +150,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
