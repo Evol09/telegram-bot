@@ -92,7 +92,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome = (
         f"👋 Hello *{user.first_name}*!\n\n"
-        f"🧠 Please solve the captcha below to verify you're human:\n"
+        f"🔒 Solve this to unlock your invite links:\n"
         f"*➡️ {num1} + {num2} = ?*"
     )
 
