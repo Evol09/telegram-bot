@@ -77,7 +77,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = (
         f"🎉 *Welcome, {name}!* \n\n"
-        f"🔐 _Prove you're human by solving this math question:_\n\n"
+        f"🔒 Solve to get invites Links:_\n\n"
         f"*➡️ {a} + {b} = ?*\n\n"
         f"📩 _Send your answer below._\n"
         f"🔁 Or type /start to refresh."
@@ -197,3 +197,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
