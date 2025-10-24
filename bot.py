@@ -5,14 +5,18 @@ import asyncio
 import csv
 import time
 from datetime import datetime
+from functools import wraps
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
+from telegram.constants import ChatAction
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -21,38 +25,51 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 MAIN_LINK = os.getenv("MAIN_LINK")
 VOUCH_LINK = os.getenv("VOUCH_LINK")
 
-LINK_EXPIRY = 15  # seconds
+LINK_EXPIRY = 15  # Link validity time in seconds
 LOG_FILE = "unlocks.csv"
-user_sessions = {}  # {user_id: answer}
-active_links = {}   # {token: expiry_timestamp}
+user_sessions = {}   # Stores user_id -> correct answer
+active_links = {}    # Stores token -> expiry timestamp
 
-# Ensure CSV exists
+# Ensure CSV logfile exists
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, "w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(["datetime", "user_id", "username", "main_link", "vouch_link"])
 
-# Generate random math captcha
+
+# Decorator to send typing action
+def send_typing_action(func):
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        await context.bot.send_chat_action(chat_id=update.effective_message.chat_id, action=ChatAction.TYPING)
+        return await func(update, context, *args, **kwargs)
+    return wrapper
+
+
+# Generate simple math captcha
 def generate_captcha():
     a, b = random.randint(3, 12), random.randint(3, 12)
     return a, b, a + b
 
-# Generate temporary unique link with expiry
+
+# Create unique temporary link with expiry
 def generate_temp_link(base_link):
     token = "".join(random.choices(string.ascii_letters + string.digits, k=8))
     expiry = time.time() + LINK_EXPIRY
     active_links[token] = expiry
     return f"{base_link}?token={token}"
 
-# Validate if a temp link is still active
+
+# Check if link/token is still valid
 def is_link_active(token: str) -> bool:
     if token in active_links and time.time() < active_links[token]:
         return True
-    # Clean expired tokens
     if token in active_links:
         del active_links[token]
     return False
 
+
 # /start command
+@send_typing_action
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     name = update.effective_user.first_name
@@ -60,18 +77,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_sessions[user_id] = ans
 
     welcome_text = (
-        f"👋 Hello {name}!\n\n"
-        f"🔒 Solve this to unlock your invite links:\n"
-        f"🧮 `{a} + {b} = ?`\n\n"
-        f"Reply with the correct answer.\n"
-        f" If you missed any, re-enter /start."
+        f"🎉 *Welcome, {name}!* \n\n"
+        f"🔐 _Before unlocking the invite links, please verify you’re human._\n"
+        f"🧠 Solve this simple puzzle:\n\n"
+        f"*➡️ {a} + {b} = ?*\n\n"
+        f"📩 _Reply with the correct answer below._\n"
+        f"🔁 If needed, type /start to try again."
     )
 
     await update.message.reply_text(
         welcome_text, parse_mode="Markdown", disable_web_page_preview=True
     )
 
-# Check user answer
+
+# Handle text/captcha answers
+@send_typing_action
 async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in user_sessions:
@@ -80,11 +100,13 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text("✏️ Please reply with a number.")
+        await update.message.reply_text("✏️ Please reply with a *number*.", parse_mode="Markdown")
         return
 
     if int(text) != user_sessions[user_id]:
-        await update.message.reply_text("❌ Incorrect answer. Try again!")
+        keyboard = [[InlineKeyboardButton("🔁 Try Again", callback_data="/start")]]
+        markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("❌ Oops! Incorrect answer.", reply_markup=markup)
         return
 
     # Correct answer
@@ -98,13 +120,13 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     msg_text = (
-        f"✅ Correct!\n\n"
-        f"⏳ Links valid for *{LINK_EXPIRY} seconds only!*\n\n"
-        f"⚙️ Steps:\n"
-        f"1️⃣ Click *all links* below\n"
-        f"2️⃣ Press *Join* in both\n"
-        f"3️⃣ If you didn’t make it in time, type */start* again\n\n"
-        f"👇 Click below to join:"
+        f"✅ *Access Granted!*\n\n"
+        f"⚠️ _These links expire in_ *{LINK_EXPIRY} seconds!* ⏳\n\n"
+        f"📋 *Steps to follow:*\n"
+        f"1️⃣ Tap both links below\n"
+        f"2️⃣ Press *Join* in each channel\n"
+        f"3️⃣ If links expire, type /start again\n\n"
+        f"👇 *Click below to join:*"
     )
 
     msg = await update.message.reply_text(
@@ -114,7 +136,7 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         disable_web_page_preview=True
     )
 
-    # Log unlock to CSV
+    # Log to CSV
     with open(LOG_FILE, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -125,48 +147,10 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             vouch_temp
         ])
 
-    # Schedule deletion and expiry cleanup
+    # Schedule message delete and link expiry
     asyncio.create_task(delete_after(msg, LINK_EXPIRY, context, [main_temp, vouch_temp]))
+    user_sessions.pop(user_id, None)
 
-    # Clear user session
-    del user_sessions[user_id]
 
-# Delete message & expire tokens
-async def delete_after(message, delay, context, links):
-    try:
-        await asyncio.sleep(delay)
-        await context.bot.delete_message(chat_id=message.chat_id, message_id=message.message_id)
-    except Exception:
-        pass
-
-    # Invalidate links
-    for link in links:
-        if "?token=" in link:
-            token = link.split("?token=")[-1]
-            if token in active_links:
-                del active_links[token]
-
-# Error handler
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
-    print(f"⚠️ Error: {context.error}")
-
-# Main
-def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_answer))
-    app.add_error_handler(error_handler)
-
-    print(f"🚀 Invite bot running — links expire after {LINK_EXPIRY}s!")
-
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(app.run_polling())
-    except KeyboardInterrupt:
-        print("🛑 Bot stopped manually.")
-    finally:
-        loop.close()
-
-if __name__ == "__main__":
-    main()
+# Delete message & invalidate links
+async 
