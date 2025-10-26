@@ -22,17 +22,23 @@ VOUCH_LINK = os.getenv("VOUCH_LINK")
 
 LINK_EXPIRY = 15  # seconds (reduced from 60)
 LOG_FILE = "unlocks.csv"
-user_sessions = {}  # {user_id: answer}
+user_sessions = {}  # {user_id: (answer, timestamp)}
+user_cooldowns = {}  # {user_id: timestamp of last action}
 
 # Ensure CSV file exists
 if not os.path.exists(LOG_FILE):
     with open(LOG_FILE, "w", newline="", encoding="utf-8") as f:
         csv.writer(f).writerow(["datetime", "user_id", "username", "main_link", "vouch_link"])
 
-# Generate random math captcha
+# Generate random math captcha with random operations
 def generate_captcha():
+    operations = ['+', '-', '*', '/']
+    op = random.choice(operations)
     a, b = random.randint(3, 12), random.randint(3, 12)
-    return a, b, a + b
+    if op == '/':
+        a *= b  # Ensure no float answers
+    result = eval(f"{a} {op} {b}")
+    return a, b, op, result
 
 # Generate temporary unique link
 def generate_temp_link(base_link):
@@ -43,13 +49,22 @@ def generate_temp_link(base_link):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     name = update.effective_user.first_name
-    a, b, ans = generate_captcha()
-    user_sessions[user_id] = ans
+
+    # Check for cooldown
+    if user_id in user_cooldowns and (datetime.now() - user_cooldowns[user_id]).seconds < 10:
+        await update.message.reply_text("⏳ Please wait a moment before trying again.")
+        return
+
+    # Set cooldown
+    user_cooldowns[user_id] = datetime.now()
+
+    a, b, op, ans = generate_captcha()
+    user_sessions[user_id] = (ans, datetime.now())
 
     welcome_text = (
         f"👋 Hello {name}!\n\n"
         f"🔒 Solve this to unlock your invite links:\n"
-        f"🧮 `{a} + {b} = ?`\n\n"
+        f"🧮 `{a} {op} {b} = ?`\n\n"
         f"Reply with the correct answer.\n"
         f"🔁 Or type /start to refresh."
     )
@@ -70,7 +85,8 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✏️ Please reply with a number.")
         return
 
-    if int(text) != user_sessions[user_id]:
+    ans, start_time = user_sessions[user_id]
+    if int(text) != ans:
         await update.message.reply_text("❌ Incorrect answer. Try again!")
         return
 
@@ -104,13 +120,8 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Log unlock to CSV
     with open(LOG_FILE, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            user_id,
-            update.effective_user.username or "",
-            main_temp,
-            vouch_temp
-        ])
+        writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                         user_id, update.effective_user.username or "", main_temp, vouch_temp])
 
     # Schedule message deletion
     asyncio.create_task(delete_after(msg, LINK_EXPIRY, context))
@@ -150,5 +161,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
