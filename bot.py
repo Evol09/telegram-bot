@@ -106,8 +106,8 @@ async def send_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "🔒 Solve this to unlock your invite links:\n\n"
         "Solve this:\n"
         f"🧮 `{a} {op} {b} = ?`\n\n"
-        "Send your answer as a number (for example: `24`).\n"
-        "You can type /start anytime to get a new question."
+        "Send your answer as a number (e.g.: 5).\n"
+        "If you didn't make it in time, type /start again."
     )
 
     keyboard = [
@@ -247,10 +247,10 @@ async def check_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     msg_text = (
         "✅ Verified successfully.\n\n"
         f"⏳ Your private access links are valid for *{LINK_EXPIRY} seconds* only.\n\n"
-        "Follow these steps carefully:\n"
+        "📍 Instructions:\n"
         "1️⃣ Tap both buttons below (VIP channel + proof channel).\n"
         "2️⃣ Press *Join* in each channel.\n"
-        "3️⃣ Once joined, check pinned messages / instructions in the VIP channel.\n\n"
+        "3️⃣ Links expire in 15 seconds!. \n\n"
         "If the links expire, simply send */start* again."
     )
 
@@ -301,5 +301,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
 
