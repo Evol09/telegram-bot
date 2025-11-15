@@ -102,8 +102,8 @@ async def send_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user_sessions[user_id] = UserSession(answer=ans, created_at=datetime.now())
 
     text = (
-        f"👋 Hi {name}, welcome to the private sales access bot.\n\n"
-        "To protect the group from spam and fake accounts, you need to solve a quick check.\n\n"
+        f"👋 Hi {name},\n\n"
+        "🔒 Solve this to unlock your invite links:\n\n"
         "Solve this:\n"
         f"🧮 `{a} {op} {b} = ?`\n\n"
         "Send your answer as a number (for example: `24`).\n"
@@ -301,3 +301,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
