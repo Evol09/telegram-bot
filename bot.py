@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-MAIN_LINK = os.getenv("MAIN_LINK")      # VIP / main sales channel
+MAIN_LINK = os.getenv("MAIN_LINK")      # VIP / main channel
 VOUCH_LINK = os.getenv("VOUCH_LINK")    # proof / vouch / feedback channel
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # optional: for /stats
 
@@ -301,4 +301,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
